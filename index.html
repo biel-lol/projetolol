@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>MiniTwitter Completo</title>
+<title>MiniTwitter Completo em Tempo Real</title>
 <style>
   body { font-family: Arial, sans-serif; background:#e6ecf0; margin:0; padding:0; }
   header { background:#1da1f2; color:white; padding:15px; font-size:24px; text-align:center; font-weight:bold; }
@@ -29,7 +29,7 @@
 </head>
 <body>
 
-<header>MiniTwitter Completo</header>
+<header>MiniTwitter Completo em Tempo Real</header>
 
 <div class="container">
 
@@ -132,7 +132,7 @@
     loadProfile();
   }
 
-  // Carrega lista de usuários
+  // Carrega lista de usuários em tempo real
   db.collection("users").onSnapshot(snapshot => {
     usersList.innerHTML = "";
     snapshot.forEach(doc => {
@@ -159,7 +159,7 @@
     alert("Usuário denunciado!");
   }
 
-  // Feed
+  // Feed em tempo real
   db.collection("messages").orderBy("timestamp","desc").onSnapshot(snapshot => {
     feedDiv.innerHTML = "";
     snapshot.forEach(doc => {
@@ -172,7 +172,7 @@
             <img src="${post.avatar}" alt="Avatar">
             <strong>${post.name}</strong>
           </div>
-          ${!post.banned ? `<button onclick="reportMessage('${doc.id}','${post.name}')">Denunciar</button>` : ""}
+          ${!post.banned ? `<button onclick="reportMessage('${doc.id}')">Denunciar</button>` : ""}
         </div>
         <div>${post.text}</div>
         <div class="post-comments" id="comments-${doc.id}">
@@ -206,7 +206,7 @@
     input.value="";
   }
 
-  async function reportMessage(postId, username){
+  async function reportMessage(postId){
     if(!confirm("Denunciar esta mensagem?")) return;
     const postRef = db.collection("messages").doc(postId);
     const postDoc = await postRef.get();
@@ -224,4 +224,3 @@
 
 </body>
 </html>
-
