@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>MiniTwitter Integrado</title>
+<style>
+body { font-family: Arial, sans-serif; background-color: #e6ecf0; margin: 0; padding: 0; }
+header { background-color: #1da1f2; color: white; padding: 15px; font-size: 24px; text-align: center; font-weight: bold; }
+.container { max-width: 600px; margin: 20px auto; background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+textarea { width: 100%; height: 80px; padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; resize: none; }
+button { background-color: #1da1f2; color: white; padding: 8px 15px; border: none; border-radius: 5px; font-size: 14px; cursor: pointer; margin-top: 5px; }
+button:hover { background-color: #0d8ddb; }
+.tweet { border-bottom: 1px solid #e6ecf0; padding: 10px 0; }
+.tweet-header { display: flex; align-items: center; margin-bottom: 5px; }
+.tweet-header img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
+.tweet p { margin: 0 0 5px 0; font-size: 16px; }
+.tweet-time { font-size: 12px; color: gray; }
+.comments { margin-top: 10px; padding-left: 50px; }
+.comment { font-size: 14px; border-bottom: 1px solid #f0f0f0; padding: 5px 0; }
+.profile-section { display: flex; align-items: center; margin-bottom: 15px; }
+.profile-section img { width: 60px; height: 60px; border-radius: 50%; margin-right: 10px; }
+.profile-section input { padding: 5px; font-size: 14px; margin-right: 5px; }
+.report-btn { background-color: red; margin-left: 5px; }
+.report-btn:hover { background-color: darkred; }
+.bio { font-size: 12px; color: gray; }
+</style>
+</head>
+<body>
+<header>MiniTwitter Integrado</header>
+<div class="container">
+    <div class="profile-section">
+        <img id="profile-pic" src="https://via.placeholder.com/60" alt="Avatar">
+        <div>
+            <strong id="profile-name">Usuário</strong><br>
+            <span id="profile-bio" class="bio">Bio não definida</span>
+        </div>
+        <button onclick="window.location.href='perfil.html'" style="margin-left:auto;">Editar Perfil</button>
+    </div>
+
+    <textarea id="tweet-input" placeholder="O que está acontecendo?"></textarea>
+    <button onclick="postTweet()">Tweetar</button>
+
+    <div id="feed"></div>
+</div>
+
+<script>
+// Função para carregar perfil do localStorage
+function loadProfile() {
+    const profile = JSON.parse(localStorage.getItem("userProfile")) || {};
+    document.getElementById("profile-name").textContent = profile.name || "Usuário";
+    document.getElementById("profile-pic").src = profile.avatar || "https://via.placeholder.com/60";
+    document.getElementById("profile-bio").textContent = profile.bio || "Bio não definida";
+    return {
+        name: profile.name || "Usuário",
+        avatar: profile.avatar || "https://via.placeholder.com/60",
+        bio: profile.bio || ""
+    };
+}
+
+let userProfile = loadProfile();
+const feed = document.getElementById("feed");
+
+// Postar tweet
+function postTweet() {
+    const input = document.getElementById("tweet-input");
+    const text = input.value.trim();
+    if(text === "") return;
+
+    const tweetObj = {
+        id: Date.now(),
+        author: userProfile.name,
+        avatar: userProfile.avatar,
+        bio: userProfile.bio,
+        text: text,
+        date: new Date().toLocaleString(),
+        comments: [],
+        reports: 0
+    };
+
+    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
+    tweets.unshift(tweetObj);
+    localStorage.setItem("tweets", JSON.stringify(tweets));
+
+    input.value = "";
+    loadTweets();
+}
+
+// Adicionar comentário
+function addComment(button) {
+    const input = button.previousElementSibling;
+    const text = input.value.trim();
+    if(text === "") return;
+
+    const tweetId = button.dataset.tweetId;
+    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
+    const tweet = tweets.find(t => t.id == tweetId);
+    tweet.comments.push({ author: userProfile.name, avatar: userProfile.avatar, text: text });
+    localStorage.setItem("tweets", JSON.stringify(tweets));
+
+    input.value = "";
+    loadTweets();
+}
+
+// Denunciar tweet
+function reportTweet(tweetId) {
+    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
+    const tweet = tweets.find(t => t.id == tweetId);
+    tweet.reports++;
+    localStorage.setItem("tweets", JSON.stringify(tweets));
+    alert("Tweet denunciado!");
+    loadTweets();
+}
+
+// Carregar tweets
+function loadTweets() {
+    feed.innerHTML = "";
+    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
+    tweets.forEach(tweet => {
+        const tweetDiv = document.createElement("div");
+        tweetDiv.className = "tweet";
+        tweetDiv.innerHTML = `
+            <div class="tweet-header">
+                <img src="${tweet.avatar}" alt="Avatar">
+                <div>
+                    <strong>${tweet.author}</strong><br>
+                    <span class="bio">${tweet.bio}</span>
+                </div>
+            </div>
+            <p>${tweet.text}</p>
+            <div class="tweet-time">📅 ${tweet.date} | 🚨 Denúncias: ${tweet.reports}</div>
+            <div class="comments">
+                ${tweet.comments.map(c => `<div class="comment"><img src="${c.avatar}" style="width:20px;height:20px;border-radius:50%;margin-right:5px;vertical-align:middle;"> <strong>${c.author}:</strong> ${c.text}</div>`).join('')}
+            </div>
+            <input type="text" placeholder="Comentar..." class="comment-input">
+            <button data-tweet-id="${tweet.id}" onclick="addComment(this)">Comentar</button>
+            <button class="report-btn" onclick="reportTweet(${tweet.id})">Denunciar</button>
+        `;
+        feed.appendChild(tweetDiv);
+    });
+}
+
+// Atualiza perfil ao carregar página
+window.addEventListener("load", () => {
+    userProfile = loadProfile();
+    loadTweets();
+});
+</script>
+</body>
+</html>

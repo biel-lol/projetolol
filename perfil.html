@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Editar Perfil - MiniTwitter</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #e6ecf0;
+        margin: 0;
+        padding: 0;
+    }
+    header {
+        background-color: #1da1f2;
+        color: white;
+        padding: 15px;
+        font-size: 24px;
+        text-align: center;
+        font-weight: bold;
+    }
+    .container {
+        max-width: 500px;
+        margin: 20px auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label {
+        display: block;
+        margin-top: 10px;
+        font-weight: bold;
+    }
+    input, textarea {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+    }
+    button {
+        margin-top: 15px;
+        padding: 10px 15px;
+        background-color: #1da1f2;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    button:hover {
+        background-color: #0d8ddb;
+    }
+    .preview {
+        display: flex;
+        align-items: center;
+        margin-top: 10px;
+    }
+    .preview img {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        margin-right: 10px;
+        object-fit: cover;
+    }
+</style>
+</head>
+<body>
+<header>Editar Perfil - MiniTwitter</header>
+<div class="container">
+    <label for="profile-name">Nome</label>
+    <input type="text" id="profile-name" placeholder="Seu nome">
+
+    <label for="profile-avatar">URL do Avatar</label>
+    <input type="text" id="profile-avatar" placeholder="Link da imagem">
+
+    <label for="profile-bio">Bio</label>
+    <textarea id="profile-bio" placeholder="Escreva algo sobre você"></textarea>
+
+    <label for="profile-city">Cidade</label>
+    <input type="text" id="profile-city" placeholder="Sua cidade">
+
+    <label for="profile-birth">Data de Nascimento</label>
+    <input type="date" id="profile-birth">
+
+    <div class="preview">
+        <img id="avatar-preview" src="https://via.placeholder.com/60" alt="Avatar">
+        <span id="name-preview">Nome do usuário</span>
+    </div>
+
+    <button onclick="saveProfile()">Salvar Perfil</button>
+</div>
+
+<script>
+const profileNameInput = document.getElementById("profile-name");
+const profileAvatarInput = document.getElementById("profile-avatar");
+const profileBioInput = document.getElementById("profile-bio");
+const profileCityInput = document.getElementById("profile-city");
+const profileBirthInput = document.getElementById("profile-birth");
+
+const avatarPreview = document.getElementById("avatar-preview");
+const namePreview = document.getElementById("name-preview");
+
+// Carregar dados do localStorage
+function loadProfile() {
+    const profile = JSON.parse(localStorage.getItem("userProfile")) || {};
+    profileNameInput.value = profile.name || "";
+    profileAvatarInput.value = profile.avatar || "";
+    profileBioInput.value = profile.bio || "";
+    profileCityInput.value = profile.city || "";
+    profileBirthInput.value = profile.birth || "";
+
+    avatarPreview.src = profile.avatar || "https://via.placeholder.com/60";
+    namePreview.textContent = profile.name || "Nome do usuário";
+}
+
+// Atualizar pré-visualização
+profileNameInput.addEventListener("input", () => {
+    namePreview.textContent = profileNameInput.value || "Nome do usuário";
+});
+profileAvatarInput.addEventListener("input", () => {
+    avatarPreview.src = profileAvatarInput.value || "https://via.placeholder.com/60";
+});
+
+// Salvar perfil no localStorage
+function saveProfile() {
+    const profile = {
+        name: profileNameInput.value,
+        avatar: profileAvatarInput.value,
+        bio: profileBioInput.value,
+        city: profileCityInput.value,
+        birth: profileBirthInput.value
+    };
+    localStorage.setItem("userProfile", JSON.stringify(profile));
+    alert("Perfil salvo com sucesso!");
+}
+
+// Carregar perfil ao iniciar a página
+loadProfile();
+</script>
+</body>
+</html>
