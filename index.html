@@ -2,30 +2,71 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Denúncias - MiniTwitter</title>
+<title>MiniTwitter Completo</title>
 <style>
   body { font-family: Arial, sans-serif; background:#e6ecf0; margin:0; padding:0; }
   header { background:#1da1f2; color:white; padding:15px; font-size:24px; text-align:center; font-weight:bold; }
-  .container { max-width:600px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
-  .user { border-bottom:1px solid #ccc; padding:10px 0; display:flex; align-items:center; justify-content:space-between; }
-  .user-info { display:flex; align-items:center; }
-  .user-info img { width:50px; height:50px; border-radius:50%; margin-right:10px; }
-  button { background:red; color:white; border:none; border-radius:5px; padding:5px 10px; cursor:pointer; }
-  button:hover { background:darkred; }
+  .container { max-width:900px; margin:20px auto; display:flex; gap:20px; }
+  .sidebar, .feed { background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+  .sidebar { width:300px; }
+  .feed { flex:1; }
+  input, textarea { width:100%; padding:8px; margin-top:10px; border-radius:5px; border:1px solid #ccc; font-size:14px; }
+  textarea { resize:none; }
+  button { background:#1da1f2; color:white; padding:8px 12px; border:none; border-radius:5px; cursor:pointer; margin-top:5px; }
+  button:hover { background:#0d8ddb; }
+  .profile-preview { display:flex; align-items:center; margin-bottom:15px; }
+  .profile-preview img { width:60px; height:60px; border-radius:50%; margin-right:10px; }
+  .post { border-bottom:1px solid #ccc; padding:10px 0; }
+  .post-header { display:flex; align-items:center; justify-content:space-between; }
+  .post-header img { width:40px; height:40px; border-radius:50%; margin-right:10px; }
+  .post-comments { margin-left:50px; margin-top:5px; }
+  .comment { font-size:14px; margin-bottom:3px; }
   .banned { opacity:0.5; text-decoration:line-through; }
 </style>
-<!-- Firebase SDKs -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-<header>Denúncias de Usuários</header>
+<header>MiniTwitter Completo</header>
 
-<div class="container" id="users-container"></div>
+<div class="container">
+
+  <!-- Sidebar: Perfil e Edição -->
+  <div class="sidebar">
+    <div class="profile-preview">
+      <img id="profile-pic" src="https://via.placeholder.com/60" alt="Avatar">
+      <div>
+        <strong id="profile-name">Usuário</strong><br>
+        <span id="profile-bio">Bio não definida</span>
+      </div>
+    </div>
+
+    <input type="text" id="avatar-input" placeholder="URL do avatar">
+    <input type="text" id="name-input" placeholder="Nome de usuário">
+    <textarea id="bio-input" placeholder="Sua bio"></textarea>
+    <button onclick="saveProfile()">Salvar Perfil</button>
+
+    <hr>
+    <h3>Usuários</h3>
+    <div id="users-list"></div>
+  </div>
+
+  <!-- Feed -->
+  <div class="feed">
+    <h3>Nova Mensagem</h3>
+    <textarea id="message-input" placeholder="Digite sua mensagem"></textarea>
+    <button onclick="postMessage()">Postar</button>
+
+    <h3>Feed</h3>
+    <div id="feed"></div>
+  </div>
+
+</div>
 
 <script>
-  // Configuração Firebase - substitua pelos valores do seu projeto
+  // Configuração Firebase
   const firebaseConfig = {
     apiKey: "SUA_API_KEY",
     authDomain: "SEU_PROJECT_ID.firebaseapp.com",
@@ -34,57 +75,153 @@
     messagingSenderId: "SENDER_ID",
     appId: "APP_ID"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
   let currentUser = localStorage.getItem("currentUser");
   if(!currentUser){
-    alert("Nenhum usuário logado! Redirecionando...");
-    window.location.href = "index.html";
+    currentUser = prompt("Digite seu nome de usuário:");
+    if(!currentUser) currentUser = "User" + Math.floor(Math.random()*1000);
+    localStorage.setItem("currentUser", currentUser);
+    db.collection("users").doc(currentUser).set({name: currentUser, avatar:"https://via.placeholder.com/60", bio:"", reports:0});
   }
 
-  const container = document.getElementById("users-container");
+  const profilePic = document.getElementById("profile-pic");
+  const profileName = document.getElementById("profile-name");
+  const profileBio = document.getElementById("profile-bio");
+  const avatarInput = document.getElementById("avatar-input");
+  const nameInput = document.getElementById("name-input");
+  const bioInput = document.getElementById("bio-input");
+  const usersList = document.getElementById("users-list");
+  const feedDiv = document.getElementById("feed");
+  const messageInput = document.getElementById("message-input");
 
-  // Carrega usuários em tempo real
+  // Carrega perfil
+  async function loadProfile(){
+    const doc = await db.collection("users").doc(currentUser).get();
+    if(doc.exists){
+      const data = doc.data();
+      profilePic.src = data.avatar || "https://via.placeholder.com/60";
+      profileName.textContent = data.name;
+      profileBio.textContent = data.bio || "Bio não definida";
+      avatarInput.value = data.avatar || "";
+      nameInput.value = data.name;
+      bioInput.value = data.bio || "";
+    }
+  }
+
+  async function saveProfile(){
+    const newAvatar = avatarInput.value.trim() || "https://via.placeholder.com/60";
+    const newName = nameInput.value.trim();
+    const newBio = bioInput.value.trim();
+    if(!newName){ alert("Nome não pode ser vazio"); return; }
+
+    const userRef = db.collection("users").doc(currentUser);
+    if(newName !== currentUser){
+      const newRef = db.collection("users").doc(newName);
+      const doc = await newRef.get();
+      if(doc.exists){ alert("Nome já existe"); return; }
+      await newRef.set({name:newName, avatar:newAvatar, bio:newBio, reports:0});
+      await userRef.delete();
+      currentUser = newName;
+      localStorage.setItem("currentUser", newName);
+    } else {
+      await userRef.update({avatar:newAvatar, bio:newBio});
+    }
+    alert("Perfil atualizado!");
+    loadProfile();
+  }
+
+  // Carrega lista de usuários
   db.collection("users").onSnapshot(snapshot => {
-    container.innerHTML = "";
+    usersList.innerHTML = "";
     snapshot.forEach(doc => {
       const user = doc.data();
       const div = document.createElement("div");
-      div.className = "user" + (user.banned ? " banned" : "");
+      div.className = user.banned ? "banned" : "";
       div.innerHTML = `
-        <div class="user-info">
-          <img src="${user.avatar}" alt="Avatar">
-          <div>
-            <strong>${user.name}</strong><br>
-            <span>${user.bio || ""}</span><br>
-            <small>Denúncias: ${user.reports || 0}</small>
-          </div>
-        </div>
-        <div>
-          ${user.name !== currentUser && !user.banned ? `<button onclick="reportUser('${user.name}')">Denunciar</button>` : ""}
-        </div>
+        <strong>${user.name}</strong> - ${user.bio || ""} (${user.reports||0} denúncias)
+        ${user.name !== currentUser && !user.banned ? `<button onclick="reportUser('${user.name}')">Denunciar</button>` : ""}
       `;
-      container.appendChild(div);
+      usersList.appendChild(div);
     });
   });
 
   async function reportUser(username){
-    if(!confirm("Deseja realmente denunciar este usuário?")) return;
+    if(!confirm("Denunciar este usuário?")) return;
     const userRef = db.collection("users").doc(username);
-    const userDoc = await userRef.get();
-    if(!userDoc.exists) return;
-
-    const data = userDoc.data();
-    const newReports = (data.reports || 0) + 1;
-    const updates = { reports: newReports };
+    const doc = await userRef.get();
+    if(!doc.exists) return;
+    const newReports = (doc.data().reports||0)+1;
+    const updates = {reports:newReports};
     if(newReports >= 3) updates.banned = true;
     await userRef.update(updates);
-
-    alert("Usuário denunciado com sucesso!");
+    alert("Usuário denunciado!");
   }
+
+  // Feed
+  db.collection("messages").orderBy("timestamp","desc").onSnapshot(snapshot => {
+    feedDiv.innerHTML = "";
+    snapshot.forEach(doc => {
+      const post = doc.data();
+      const div = document.createElement("div");
+      div.className = "post" + (post.banned ? " banned" : "");
+      div.innerHTML = `
+        <div class="post-header">
+          <div style="display:flex;align-items:center;">
+            <img src="${post.avatar}" alt="Avatar">
+            <strong>${post.name}</strong>
+          </div>
+          ${!post.banned ? `<button onclick="reportMessage('${doc.id}','${post.name}')">Denunciar</button>` : ""}
+        </div>
+        <div>${post.text}</div>
+        <div class="post-comments" id="comments-${doc.id}">
+          ${post.comments ? post.comments.map(c=>`<div class="comment"><strong>${c.name}:</strong> ${c.text}</div>`).join("") : ""}
+          ${!post.banned ? `<input id="input-${doc.id}" placeholder="Comentar"><button onclick="addComment('${doc.id}')">Comentar</button>` : ""}
+        </div>
+      `;
+      feedDiv.appendChild(div);
+    });
+  });
+
+  async function postMessage(){
+    const text = messageInput.value.trim();
+    if(!text){ alert("Digite uma mensagem"); return; }
+    const userDoc = await db.collection("users").doc(currentUser).get();
+    const data = userDoc.data();
+    await db.collection("messages").add({name:data.name, avatar:data.avatar, text, timestamp:Date.now(), comments:[], banned:false});
+    messageInput.value="";
+  }
+
+  async function addComment(postId){
+    const input = document.getElementById("input-"+postId);
+    const text = input.value.trim();
+    if(!text) return;
+    const userDoc = await db.collection("users").doc(currentUser).get();
+    const data = userDoc.data();
+    const postRef = db.collection("messages").doc(postId);
+    await postRef.update({
+      comments: firebase.firestore.FieldValue.arrayUnion({name:data.name, text})
+    });
+    input.value="";
+  }
+
+  async function reportMessage(postId, username){
+    if(!confirm("Denunciar esta mensagem?")) return;
+    const postRef = db.collection("messages").doc(postId);
+    const postDoc = await postRef.get();
+    if(!postDoc.exists) return;
+    const post = postDoc.data();
+    const newReports = (post.reports||0)+1;
+    const updates = {reports:newReports};
+    if(newReports >= 3) updates.banned = true;
+    await postRef.update(updates);
+    alert("Mensagem denunciada!");
+  }
+
+  loadProfile();
 </script>
 
 </body>
 </html>
+
