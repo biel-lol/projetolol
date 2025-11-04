@@ -2,194 +2,89 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>MiniTwitter Multiusuário</title>
+<title>Denúncias - MiniTwitter</title>
 <style>
-body { font-family: Arial, sans-serif; background-color: #e6ecf0; margin: 0; padding: 0; }
-header { background-color: #1da1f2; color: white; padding: 15px; font-size: 24px; text-align: center; font-weight: bold; }
-.container { max-width: 600px; margin: 20px auto; background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-input, textarea { width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; font-size: 14px; }
-textarea { height: 80px; resize: none; }
-button { background-color: #1da1f2; color: white; padding: 8px 15px; border: none; border-radius: 5px; font-size: 14px; cursor: pointer; margin-top: 5px; }
-button:hover { background-color: #0d8ddb; }
-.tweet { border-bottom: 1px solid #e6ecf0; padding: 10px 0; }
-.tweet-header { display: flex; align-items: center; margin-bottom: 5px; }
-.tweet-header img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
-.tweet p { margin: 0 0 5px 0; font-size: 16px; }
-.tweet-time { font-size: 12px; color: gray; }
-.comments { margin-top: 10px; padding-left: 50px; }
-.comment { font-size: 14px; border-bottom: 1px solid #f0f0f0; padding: 5px 0; }
-.profile-section { display: flex; align-items: center; margin-bottom: 15px; }
-.profile-section img { width: 60px; height: 60px; border-radius: 50%; margin-right: 10px; }
-.profile-section input { padding: 5px; font-size: 14px; margin-right: 5px; }
-.report-btn { background-color: red; margin-left: 5px; }
-.report-btn:hover { background-color: darkred; }
-.bio { font-size: 12px; color: gray; }
-.hidden { display: none; }
+  body { font-family: Arial, sans-serif; background:#e6ecf0; margin:0; padding:0; }
+  header { background:#1da1f2; color:white; padding:15px; font-size:24px; text-align:center; font-weight:bold; }
+  .container { max-width:600px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+  .user { border-bottom:1px solid #ccc; padding:10px 0; display:flex; align-items:center; justify-content:space-between; }
+  .user-info { display:flex; align-items:center; }
+  .user-info img { width:50px; height:50px; border-radius:50%; margin-right:10px; }
+  button { background:red; color:white; border:none; border-radius:5px; padding:5px 10px; cursor:pointer; }
+  button:hover { background:darkred; }
+  .banned { opacity:0.5; text-decoration:line-through; }
 </style>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-<header>MiniTwitter Multiusuário</header>
+<header>Denúncias de Usuários</header>
 
-<div class="container" id="login-container">
-    <h3>Login ou Criar Usuário</h3>
-    <input type="text" id="username-input" placeholder="Nome de usuário único">
-    <input type="text" id="avatar-input" placeholder="URL do avatar">
-    <textarea id="bio-input" placeholder="Sua bio"></textarea>
-    <button onclick="loginUser()">Entrar / Criar</button>
-</div>
-
-<div class="container hidden" id="main-container">
-    <div class="profile-section">
-        <img id="profile-pic" src="https://via.placeholder.com/60" alt="Avatar">
-        <div>
-            <strong id="profile-name">Usuário</strong><br>
-            <span id="profile-bio" class="bio">Bio não definida</span>
-        </div>
-        <button onclick="logout()" style="margin-left:auto;">Logout</button>
-    </div>
-
-    <textarea id="tweet-input" placeholder="O que está acontecendo?"></textarea>
-    <button onclick="postTweet()">Tweetar</button>
-
-    <h3>Feed</h3>
-    <div id="feed"></div>
-</div>
+<div class="container" id="users-container"></div>
 
 <script>
-// Usuário logado
-let currentUser = null;
+  // Configuração Firebase - substitua pelos valores do seu projeto
+  const firebaseConfig = {
+    apiKey: "SUA_API_KEY",
+    authDomain: "SEU_PROJECT_ID.firebaseapp.com",
+    projectId: "SEU_PROJECT_ID",
+    storageBucket: "SEU_PROJECT_ID.appspot.com",
+    messagingSenderId: "SENDER_ID",
+    appId: "APP_ID"
+  };
 
-// Login ou criar usuário
-function loginUser() {
-    const name = document.getElementById("username-input").value.trim();
-    const avatar = document.getElementById("avatar-input").value.trim() || "https://via.placeholder.com/60";
-    const bio = document.getElementById("bio-input").value.trim() || "";
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-    if(name === "") { alert("Digite um nome de usuário!"); return; }
+  let currentUser = localStorage.getItem("currentUser");
+  if(!currentUser){
+    alert("Nenhum usuário logado! Redirecionando...");
+    window.location.href = "index.html";
+  }
 
-    let users = JSON.parse(localStorage.getItem("users")) || {};
-    if(!users[name]) {
-        users[name] = { name, avatar, bio };
-        localStorage.setItem("users", JSON.stringify(users));
-    }
+  const container = document.getElementById("users-container");
 
-    currentUser = users[name];
-    localStorage.setItem("currentUser", name);
-    showMainContainer();
-}
-
-// Mostrar feed principal
-function showMainContainer() {
-    document.getElementById("login-container").classList.add("hidden");
-    document.getElementById("main-container").classList.remove("hidden");
-    loadProfile();
-    loadTweets();
-}
-
-// Logout
-function logout() {
-    localStorage.removeItem("currentUser");
-    location.reload();
-}
-
-// Carregar perfil
-function loadProfile() {
-    let name = localStorage.getItem("currentUser");
-    let users = JSON.parse(localStorage.getItem("users")) || {};
-    currentUser = users[name];
-    document.getElementById("profile-name").textContent = currentUser.name;
-    document.getElementById("profile-pic").src = currentUser.avatar;
-    document.getElementById("profile-bio").textContent = currentUser.bio;
-}
-
-// Postar tweet
-function postTweet() {
-    const text = document.getElementById("tweet-input").value.trim();
-    if(text === "") return;
-
-    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
-    tweets.unshift({
-        id: Date.now(),
-        author: currentUser.name,
-        avatar: currentUser.avatar,
-        bio: currentUser.bio,
-        text: text,
-        date: new Date().toLocaleString(),
-        comments: [],
-        reports: 0,
-        banned: false
+  // Carrega usuários em tempo real
+  db.collection("users").onSnapshot(snapshot => {
+    container.innerHTML = "";
+    snapshot.forEach(doc => {
+      const user = doc.data();
+      const div = document.createElement("div");
+      div.className = "user" + (user.banned ? " banned" : "");
+      div.innerHTML = `
+        <div class="user-info">
+          <img src="${user.avatar}" alt="Avatar">
+          <div>
+            <strong>${user.name}</strong><br>
+            <span>${user.bio || ""}</span><br>
+            <small>Denúncias: ${user.reports || 0}</small>
+          </div>
+        </div>
+        <div>
+          ${user.name !== currentUser && !user.banned ? `<button onclick="reportUser('${user.name}')">Denunciar</button>` : ""}
+        </div>
+      `;
+      container.appendChild(div);
     });
+  });
 
-    localStorage.setItem("tweets", JSON.stringify(tweets));
-    document.getElementById("tweet-input").value = "";
-    loadTweets();
-}
+  async function reportUser(username){
+    if(!confirm("Deseja realmente denunciar este usuário?")) return;
+    const userRef = db.collection("users").doc(username);
+    const userDoc = await userRef.get();
+    if(!userDoc.exists) return;
 
-// Adicionar comentário
-function addComment(button) {
-    const input = button.previousElementSibling;
-    const text = input.value.trim();
-    if(text === "") return;
+    const data = userDoc.data();
+    const newReports = (data.reports || 0) + 1;
+    const updates = { reports: newReports };
+    if(newReports >= 3) updates.banned = true;
+    await userRef.update(updates);
 
-    const tweetId = button.dataset.tweetId;
-    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
-    const tweet = tweets.find(t => t.id == tweetId);
-    tweet.comments.push({ author: currentUser.name, avatar: currentUser.avatar, text });
-    localStorage.setItem("tweets", JSON.stringify(tweets));
-    input.value = "";
-    loadTweets();
-}
-
-// Denunciar tweet
-function reportTweet(tweetId) {
-    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
-    const tweet = tweets.find(t => t.id == tweetId);
-    tweet.reports++;
-    if(tweet.reports >= 3) tweet.banned = true;
-    localStorage.setItem("tweets", JSON.stringify(tweets));
-    loadTweets();
-}
-
-// Carregar tweets
-function loadTweets() {
-    const feed = document.getElementById("feed");
-    feed.innerHTML = "";
-    let tweets = JSON.parse(localStorage.getItem("tweets")) || [];
-
-    tweets.forEach(tweet => {
-        if(tweet.banned) return;
-
-        const tweetDiv = document.createElement("div");
-        tweetDiv.className = "tweet";
-        tweetDiv.innerHTML = `
-            <div class="tweet-header">
-                <img src="${tweet.avatar}" alt="Avatar">
-                <div>
-                    <strong>${tweet.author}</strong><br>
-                    <span class="bio">${tweet.bio}</span>
-                </div>
-            </div>
-            <p>${tweet.text}</p>
-            <div class="tweet-time">📅 ${tweet.date} | 🚨 Denúncias: ${tweet.reports}</div>
-            <div class="comments">
-                ${tweet.comments.map(c => `<div class="comment"><img src="${c.avatar}" style="width:20px;height:20px;border-radius:50%;margin-right:5px;vertical-align:middle;"> <strong>${c.author}:</strong> ${c.text}</div>`).join('')}
-            </div>
-            <input type="text" placeholder="Comentar..." class="comment-input">
-            <button data-tweet-id="${tweet.id}" onclick="addComment(this)">Comentar</button>
-            <button class="report-btn" onclick="reportTweet(${tweet.id})">Denunciar</button>
-        `;
-        feed.appendChild(tweetDiv);
-    });
-}
-
-// Verificar login automático
-window.addEventListener("load", () => {
-    const name = localStorage.getItem("currentUser");
-    if(name) showMainContainer();
-});
+    alert("Usuário denunciado com sucesso!");
+  }
 </script>
 
 </body>
 </html>
-
